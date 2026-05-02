@@ -1,0 +1,2760 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Control de Asistencia</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        /* CORRECCIONES PARA iOS Y ANDROID */
+* {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Permitir selección en inputs */
+input, textarea {
+    -webkit-user-select: auto;
+    user-select: auto;
+}
+
+/* Botones con comportamiento táctil mejorado */
+button, .login-btn, .segment-btn, .attendance-btn {
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* Prevenir zoom en inputs en iOS */
+input[type="password"],
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+    font-size: 16px; /* Previene zoom en focus en iOS */
+    touch-action: manipulation;
+}
+
+/* Estilo específico para botón de login en móviles */
+.login-btn {
+    position: relative;
+    z-index: 1000;
+    min-height: 44px; /* Tamaño táctil mínimo recomendado por Apple */
+}
+
+/* Fix para modales en iOS */
+.camera-modal,
+.login-screen,
+.modal-overlay {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+
+        input, textarea, select, button {
+            -webkit-user-select: auto;
+            user-select: auto;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            padding: 10px;
+            padding-top: max(10px, env(safe-area-inset-top));
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-screen.hidden { display: none; }
+
+        .login-box {
+            background: white;
+            padding: 40px 30px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .login-icon { font-size: 4rem; margin-bottom: 10px; }
+        .login-title { font-size: 1.5rem; color: #2d3748; margin-bottom: 8px; font-weight: 700; }
+        .login-subtitle { color: #718096; font-size: 0.9rem; margin-bottom: 30px; }
+
+        .login-input-group { margin-bottom: 20px; text-align: left; }
+        .login-input-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            text-align: center;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+        }
+
+        .login-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .login-input.error {
+            border-color: #f56565;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 10px;
+            touch-action: manipulation;
+        }
+
+        .login-btn:active { transform: scale(0.98); opacity: 0.9; }
+
+        .login-error-msg {
+            color: #f56565;
+            font-size: 0.85rem;
+            margin-top: 15px;
+            display: none;
+            font-weight: 600;
+        }
+
+        .login-error-msg.show { display: block; }
+
+        .logout-btn {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            right: 10px;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.4);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 15px;
+            padding: 5px;
+            padding-top: 40px;
+        }
+
+        h1 { font-size: 1.4rem; margin-bottom: 3px; font-weight: 700; }
+        .subtitle { font-size: 0.8rem; opacity: 0.9; }
+
+        .header-info {
+            background: white;
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+            margin-bottom: 12px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        @media (min-width: 768px) { .info-grid { grid-template-columns: repeat(4, 1fr); } }
+
+        .info-field { display: flex; flex-direction: column; gap: 3px; }
+        .info-field label {
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+        }
+
+        .info-field input, .info-field select {
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            width: 100%;
+            height: 36px;
+            -webkit-appearance: none;
+        }
+
+        /* Configuración de horario y días */
+        .schedule-config {
+            background: #f0f4f8;
+            padding: 12px;
+            border-radius: 10px;
+            margin-top: 8px;
+        }
+
+        .schedule-config h4 {
+            margin-bottom: 10px;
+            color: #4a5568;
+            font-size: 0.8rem;
+        }
+
+        .schedule-dates {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 480px) { .schedule-dates { grid-template-columns: 1fr; } }
+
+        .class-days {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 6px;
+        }
+
+        .day-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            background: white;
+            padding: 6px 10px;
+            border-radius: 15px;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+
+        .day-checkbox input {
+            width: 14px;
+            height: 14px;
+            margin: 0;
+        }
+
+        .day-checkbox.checked {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .config-alert {
+            background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .config-alert.show { display: flex; }
+        .config-alert-icon { font-size: 1.5rem; }
+
+        .group-config {
+            background: linear-gradient(135deg, #f6f4ff 0%, #e9e3ff 100%);
+            padding: 12px;
+            border-radius: 10px;
+            margin-top: 10px;
+            border: 2px solid #667eea;
+        }
+
+        .group-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        @media (max-width: 640px) { .group-grid { grid-template-columns: 1fr; } }
+
+        .group-field { display: flex; flex-direction: column; gap: 6px; }
+        .group-field label {
+            font-weight: 700;
+            color: #553c9a;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .segmented-control {
+            display: flex;
+            background: white;
+            border-radius: 8px;
+            padding: 3px;
+            gap: 3px;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.1);
+        }
+
+        .segment-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #718096;
+        }
+
+        .segment-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .segment-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .segment-btn:not(:disabled):active { transform: scale(0.95); }
+
+        .module-info {
+            font-size: 0.7rem;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 4px;
+            text-align: center;
+        }
+
+        .group-display {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .group-display.incomplete {
+            background: linear-gradient(135deg, #ed8936 0%, #c05621 100%);
+        }
+
+        .controls {
+            background: white;
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+            margin-bottom: 12px;
+        }
+
+        .backup-alert {
+            background: linear-gradient(135deg, #f6ad55 0%, #ed8936 100%);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .backup-alert.show { display: flex; }
+        .backup-alert-icon { font-size: 1.5rem; }
+        .backup-alert-text { flex: 1; }
+
+        .backup-alert-btn {
+            background: white;
+            color: #ed8936;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .backup-alert-btn:active { transform: scale(0.95); }
+
+        .backup-alert-close {
+            background: rgba(255,255,255,0.3);
+            border: none;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .add-btn-container { margin-bottom: 10px; }
+
+        #addStudentBtn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            -webkit-appearance: none;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            min-height: 52px;
+            position: relative;
+            z-index: 10;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            touch-action: manipulation;
+        }
+
+        #addStudentBtn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #addStudentBtn:not(:disabled):active {
+            transform: scale(0.98);
+            -webkit-transform: scale(0.98);
+            opacity: 0.9;
+        }
+
+        .export-section {
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+        }
+
+        .export-section-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #4a5568;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .export-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .export-btn {
+            padding: 12px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            touch-action: manipulation;
+            transition: all 0.2s;
+        }
+
+        .export-btn:hover { background: #667eea; color: white; }
+        .export-btn:active { transform: scale(0.98); }
+        .export-btn.success { background: #48bb78; border-color: #48bb78; color: white; }
+
+        .import-btn {
+            width: 100%;
+            padding: 12px;
+            border: 2px dashed #48bb78;
+            background: #f0fff4;
+            color: #22543d;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            touch-action: manipulation;
+        }
+
+        .import-btn:active { background: #48bb78; color: white; }
+
+        #importFileInput { display: none; }
+
+        .backup-info {
+            margin-top: 8px;
+            padding: 8px;
+            background: #e6fffa;
+            border-left: 3px solid #38b2ac;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #234e52;
+        }
+
+        .backup-info strong { display: block; margin-bottom: 2px; }
+
+        .date-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .date-selector label { font-weight: 600; font-size: 0.85rem; }
+
+        input[type="date"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            height: 44px;
+            -webkit-appearance: none;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            gap: 6px;
+            font-size: 0.75rem;
+        }
+
+        .stat-item {
+            background: #f0f4f8;
+            padding: 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            flex: 1;
+            text-align: center;
+        }
+
+        .students-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        @media (min-width: 640px) { .students-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1024px) { .students-grid { grid-template-columns: repeat(3, 1fr); } }
+
+        .student-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .student-header-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .student-photo-thumb {
+            width: 100px;
+            height: 125px;
+            min-width: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .student-photo-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 15%;
+            display: block;
+        }
+
+        .student-photo-thumb.has-photo { background: transparent; }
+
+        .photo-placeholder-small { font-size: 2rem; color: #a0aec0; }
+
+        .photo-edit-hint {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .student-title { flex: 1; min-width: 0; }
+
+        .student-name {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #2d3748;
+            border: none;
+            width: 100%;
+            outline: none;
+            background: transparent;
+            padding: 4px;
+            margin-bottom: 4px;
+        }
+
+        .student-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.7rem;
+            color: #718096;
+        }
+
+        .student-id-display {
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .group-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.65rem;
+            font-weight: 700;
+        }
+
+        .remove-btn-small {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: #fed7d7;
+            color: #c53030;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .student-body { padding: 12px; }
+
+        .current-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 10px;
+            padding: 6px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .current-status.present { background: #c6f6d5; color: #22543d; }
+        .current-status.absent { background: #fed7d7; color: #742a2a; }
+        .current-status.late { background: #fefcbf; color: #744210; }
+        .current-status.none { background: #edf2f7; color: #4a5568; }
+
+        .attendance-controls { display: flex; gap: 6px; margin-bottom: 12px; }
+
+        .attendance-btn {
+            flex: 1;
+            padding: 10px 4px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            min-height: 40px;
+        }
+
+        .attendance-btn.present { border-color: #48bb78; background: #c6f6d5; color: #22543d; }
+        .attendance-btn.absent { border-color: #f56565; background: #fed7d7; color: #742a2a; }
+        .attendance-btn.late { border-color: #ecc94b; background: #fefcbf; color: #744210; }
+
+        .grades-section {
+            background: #f7fafc;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .grades-title {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #4a5568;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+
+        .grades-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+        .grade-input {
+            text-align: center;
+            padding: 8px 2px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            width: 100%;
+            height: 36px;
+        }
+
+        .grade-input:focus { outline: none; border-color: #667eea; }
+        .grade-input.error { border-color: #f56565; background: #fff5f5; }
+        .grade-input.valid { border-color: #48bb78; background: #f0fff4; }
+
+        .average-display {
+            margin-top: 8px;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            text-align: center;
+            color: white;
+        }
+
+        .average-label { font-size: 0.7rem; text-transform: uppercase; opacity: 0.9; margin-bottom: 2px; }
+        .average-value { font-size: 1.4rem; font-weight: 700; }
+        .average-value.pass { color: #9ae6b4; }
+        .average-value.fail { color: #feb2b2; }
+
+        .notes-textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            resize: vertical;
+            min-height: 60px;
+            margin-bottom: 10px;
+        }
+
+        .student-stats {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.7rem;
+            color: #718096;
+            cursor: pointer;
+        }
+
+        .stat { text-align: center; }
+        .stat-value { font-weight: 700; color: #2d3748; font-size: 0.95rem; }
+
+        .camera-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            height: -webkit-fill-available;
+            background: #000;
+            z-index: 999999;
+            flex-direction: column;
+        }
+
+        .camera-modal.active { display: flex; }
+
+        .camera-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #1a1a1a;
+            color: white;
+            flex-shrink: 0;
+            padding-top: max(12px, env(safe-area-inset-top));
+        }
+
+        .camera-header h3 { font-size: 1rem; margin: 0; }
+
+        .close-camera-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 28px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .camera-preview {
+            position: relative;
+            flex: 1;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #videoElement {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        #canvasElement { display: none; width: 100%; height: 100%; object-fit: contain; }
+
+        .camera-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 240px;
+            height: 300px;
+            border: 3px solid #48bb78;
+            border-radius: 8px;
+            box-shadow: 0 0 0 2000px rgba(0,0,0,0.75);
+            pointer-events: none;
+        }
+
+        .camera-frame-text {
+            position: absolute;
+            top: -28px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(72, 187, 120, 0.95);
+            padding: 4px 12px;
+            border-radius: 12px;
+            white-space: nowrap;
+        }
+
+        .countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.9);
+            z-index: 30;
+            display: none;
+        }
+
+        .flash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 25;
+        }
+
+        .flash.active { animation: flash 0.3s ease; }
+
+        @keyframes flash {
+            0% { opacity: 0; }
+            50% { opacity: 0.8; }
+            100% { opacity: 0; }
+        }
+
+        .camera-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+            background: #1a1a1a;
+            flex-shrink: 0;
+        }
+
+        .capture-btn {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 4px solid white;
+            background: #f56565;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .capture-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: white;
+        }
+
+        .retake-btn, .save-btn {
+            padding: 12px 24px;
+            border-radius: 20px;
+            border: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            min-height: 44px;
+        }
+
+        .retake-btn { background: #4a5568; color: white; }
+        .save-btn { background: #48bb78; color: white; }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 99999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal-box {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d3748;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            display: none;
+            z-index: 999999;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .toast.show { display: block; }
+
+        .photo-menu-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 9999;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 20px;
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+        }
+
+        .photo-menu-overlay.active { display: flex; }
+
+        .photo-menu {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 400px;
+            overflow: hidden;
+        }
+
+        .photo-menu-item {
+            padding: 18px;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .photo-menu-item:last-child { border-bottom: none; color: #e53e3e; }
+        .photo-menu-item:active { background: #f7fafc; }
+    </style>
+</head>
+<body>
+    <!-- LOGIN SCREEN -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-box">
+            <div class="login-icon">🔒</div>
+            <h2 class="login-title">Control de Asistencia</h2>
+            <p class="login-subtitle">Ingresa la contraseña para continuar</p>
+            
+            <div class="login-input-group">
+                <label for="passwordInput">Contraseña</label>
+                <input type="password" id="passwordInput" class="login-input" placeholder="••••••" maxlength="20">
+            </div>
+            
+            <button class="login-btn" id="loginBtn" type="button">Ingresar</button>
+            
+            <div class="login-error-msg" id="loginError">Contraseña incorrecta</div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="mainApp" style="display: none;">
+        <button class="logout-btn" onclick="logout()" type="button">Cerrar Sesión</button>
+        
+        <div class="container">
+            <header>
+                <h1>📋 Control de Asistencia</h1>
+                <p class="subtitle">Control integral del curso · Creado 2026 por EC</p>
+            </header>
+
+            <div class="header-info">
+                <div class="info-grid">
+                    <div class="info-field">
+                        <label>🏫 Escuela</label>
+                        <input type="text" id="schoolName" onchange="saveGroupConfig()">
+                    </div>
+                    <div class="info-field">
+                        <label>👨‍🏫 Profesor</label>
+                        <input type="text" id="teacherName" onchange="saveGroupConfig()">
+                    </div>
+                    <div class="info-field">
+                        <label>📚 Materia</label>
+                        <input type="text" id="subjectName" onchange="saveGroupConfig()">
+                    </div>
+                    <div class="info-field">
+                        <label>🎓 Curso</label>
+                        <select id="courseSelect" onchange="changeCourse()">
+                            <option value="">Seleccionar curso...</option>
+                            <option value="1er año - División 1">1er año - Div 1</option>
+                            <option value="1er año - División 2">1er año - Div 2</option>
+                            <option value="1er año - División 3">1er año - Div 3</option>
+                            <option value="2do año - División 1">2do año - Div 1</option>
+                            <option value="2do año - División 2">2do año - Div 2</option>
+                            <option value="2do año - División 3">2do año - Div 3</option>
+                            <option value="3er año - División 1">3er año - Div 1</option>
+                            <option value="3er año - División 2">3er año - Div 2</option>
+                            <option value="3er año - División 3">3er año - Div 3</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Configuración de Horario y Días de Cursada -->
+                <div class="schedule-config">
+                    <h4>⚙️ Configuración del Cuatrimestre</h4>
+                    <div class="schedule-dates">
+                        <div class="info-field">
+                            <label>Inicio Cuatrimestre</label>
+                            <input type="date" id="yearStartDate" onchange="saveGroupConfig(); processRetroactiveAbsences();">
+                        </div>
+                        <div class="info-field">
+                            <label>Fin Cuatrimestre</label>
+                            <input type="date" id="yearEndDate" onchange="saveGroupConfig()">
+                        </div>
+                        <div class="info-field">
+                            <label>Horario</label>
+                            <input type="time" id="classTime" value="08:00" onchange="saveGroupConfig()">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.65rem; font-weight: 700; color: #4a5568; text-transform: uppercase;">Días de clase</label>
+                        <div class="class-days">
+                            <label class="day-checkbox"><input type="checkbox" value="1" onchange="toggleDay(this)"> Lun</label>
+                            <label class="day-checkbox"><input type="checkbox" value="2" onchange="toggleDay(this)"> Mar</label>
+                            <label class="day-checkbox"><input type="checkbox" value="3" onchange="toggleDay(this)"> Mié</label>
+                            <label class="day-checkbox"><input type="checkbox" value="4" onchange="toggleDay(this)"> Jue</label>
+                            <label class="day-checkbox"><input type="checkbox" value="5" onchange="toggleDay(this)"> Vie</label>
+                            <label class="day-checkbox"><input type="checkbox" value="6" onchange="toggleDay(this)"> Sáb</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerta de configuración incompleta -->
+                <div class="config-alert" id="configAlert">
+                    <span class="config-alert-icon">⚠️</span>
+                    <span>Completa Curso, Módulo y Burbuja para agregar alumnos</span>
+                </div>
+
+                <!-- Configuración de Grupo (Curso + Módulo + Burbuja) -->
+                <div class="group-config">
+                    <div class="group-grid">
+                        <div class="group-field">
+                            <label>🎓 Curso</label>
+                            <div id="displayCourse" style="padding: 10px; background: white; border-radius: 6px; font-size: 0.9rem; color: #4a5568; font-weight: 600; border: 1px solid #e2e8f0;">
+                                No seleccionado
+                            </div>
+                        </div>
+                        <div class="group-field">
+                            <label>📚 Módulo</label>
+                            <div class="segmented-control" id="moduleControl">
+                                <button class="segment-btn" id="btnM1" onclick="setModule(1)" disabled>M1</button>
+                                <button class="segment-btn" id="btnM2" onclick="setModule(2)" disabled>M2</button>
+                            </div>
+                            <div class="module-info" id="moduleInfo">Selecciona un curso</div>
+                        </div>
+                        <div class="group-field">
+                            <label>🔄 Burbuja</label>
+                            <div class="segmented-control">
+                                <button class="segment-btn" id="btnB1" onclick="setBubble(1)">1</button>
+                                <button class="segment-btn" id="btnB2" onclick="setBubble(2)">2</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="group-display" id="groupDisplay">
+                    <span id="displayInfo">Selecciona curso, módulo y burbuja</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="backup-alert" id="backupAlert">
+                    <span class="backup-alert-icon">⚠️</span>
+                    <span class="backup-alert-text">
+                        Último respaldo: <span id="lastBackupDate">Nunca</span>
+                    </span>
+                    <button class="backup-alert-btn" onclick="exportToJSON(true)">Respaldar Ahora</button>
+                    <button class="backup-alert-close" onclick="dismissBackupAlert()">×</button>
+                </div>
+
+                <div class="export-section">
+                    <div class="export-section-title">💾 Guardar / Importar Datos</div>
+                    <div class="export-buttons">
+                        <button class="export-btn" id="btnExportJSON" onclick="exportToJSON()" type="button">📥 Guardar datos</button>
+                        <button class="export-btn" onclick="exportToExcel()" type="button">📊 Exportar a Excel</button>
+                    </div>
+                    
+                    <button class="import-btn" onclick="document.getElementById('importFileInput').click()" type="button">
+                        📤 Importar datos
+                    </button>
+                    <input type="file" id="importFileInput" accept=".json" onchange="importFromJSON(event)">
+                    
+                    <div class="backup-info">
+                        <strong>💡 Instrucciones de seguridad:</strong>
+                        <span id="backupInstructions">
+                            • En <b>PC Chrome/Edge</b>: Puedes elegir carpeta específica<br>
+                            • En <b>Android</b>: Archivo se guarda en Descargas → muévelo a carpeta segura<br>
+                            • En <b>iPhone</b>: Usa "Archivos" app para organizar respaldos
+                        </span>
+                    </div>
+                </div>
+
+                <div class="add-btn-container">
+                    <button id="addStudentBtn" type="button" disabled>
+                        <span>➕</span> Agregar Alumno
+                    </button>
+                </div>
+                
+                <div class="date-selector">
+                    <label>Fecha:</label>
+                    <input type="date" id="currentDate" onchange="renderStudents()">
+                </div>
+
+                <div class="stats-bar">
+                    <span class="stat-item">Total: <span id="totalStudents">0</span></span>
+                    <span class="stat-item">P: <span id="totalPresent">0</span></span>
+                    <span class="stat-item">A: <span id="totalAbsent">0</span></span>
+                    <span class="stat-item">T: <span id="totalLate">0</span></span>
+                </div>
+            </div>
+
+            <div id="studentsContainer" class="students-grid"></div>
+        </div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div class="camera-modal" id="cameraModal">
+        <div class="camera-header">
+            <h3>📷 Foto Carnet</h3>
+            <button class="close-camera-btn" onclick="closeCamera()" type="button">×</button>
+        </div>
+        <div class="camera-preview">
+            <video id="videoElement" autoplay playsinline muted></video>
+            <canvas id="canvasElement"></canvas>
+            <div class="camera-frame">
+                <div class="camera-frame-text">Alinea tu rostro</div>
+            </div>
+            <div class="countdown" id="countdown">3</div>
+            <div class="flash" id="flash"></div>
+        </div>
+        <div class="camera-controls" id="cameraControls">
+            <button class="capture-btn" onclick="startCountdown()" type="button"></button>
+        </div>
+        <div class="camera-controls" id="photoControls" style="display: none;">
+            <button class="retake-btn" onclick="retakePhoto()" type="button">🔄 Repetir</button>
+            <button class="save-btn" onclick="savePhoto()" type="button">✓ Guardar</button>
+        </div>
+    </div>
+
+    <!-- Photo Menu Overlay -->
+    <div class="photo-menu-overlay" id="photoMenuOverlay" onclick="closePhotoMenu()">
+        <div class="photo-menu" onclick="event.stopPropagation()">
+            <div class="photo-menu-item" onclick="openCameraFromMenu()" style="color: #667eea;">📷 Tomar foto</div>
+            <div class="photo-menu-item" onclick="triggerFileUpload()" style="color: #667eea;">📁 Subir foto</div>
+            <div class="photo-menu-item" onclick="closePhotoMenu()">Cancelar</div>
+        </div>
+    </div>
+    <input type="file" id="hiddenFileInput" style="display:none" accept="image/*" onchange="handleFileUpload(event)">
+
+    <!-- History Modal -->
+    <div class="modal-overlay" id="historyModal" onclick="closeHistoryModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h3 style="margin-bottom: 15px; color: #2d3748;">Historial de Asistencia</h3>
+            <div id="historyContent"></div>
+            <button onclick="closeHistoryModal()" style="margin-top: 15px; padding: 12px; border-radius: 8px; border: none; background: #667eea; color: white; cursor: pointer; width: 100%; font-weight: 600;" type="button">Cerrar</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">✓ Listo</div>
+
+    <script>
+        // CONFIGURACIÓN
+        const APP_PASSWORD = 'profesor2024';
+        const BACKUP_REMINDER_DAYS = 3;
+        
+        // VARIABLES GLOBALES
+        let groupsData = JSON.parse(localStorage.getItem('groupsData')) || {};
+        let attendance = JSON.parse(localStorage.getItem('attendance')) || {};
+        
+        let currentConfig = {
+            course: '',
+            module: 0,
+            bubble: 0
+        };
+        
+        let currentStudentId = null;
+        let tempStudentId = null;
+        let stream = null;
+        let isCapturing = false;
+        let cameraPermissionGranted = false;
+
+        // PREVENIR ZOOM EN IPHONE
+        document.addEventListener('gesturestart', e => e.preventDefault());
+        document.addEventListener('gesturechange', e => e.preventDefault());
+        document.addEventListener('gestureend', e => e.preventDefault());
+
+        // STORAGE CON FALLBACK PARA iOS (sessionStorage falla en archivos locales)
+        function sessionSet(key, value) {
+            try {
+                sessionStorage.setItem(key, value);
+                if (sessionStorage.getItem(key) === value) return; // OK
+            } catch(e) {}
+            // Fallback: variable en memoria
+            window._sessionFallback = window._sessionFallback || {};
+            window._sessionFallback[key] = value;
+        }
+        function sessionGet(key) {
+            try {
+                const v = sessionStorage.getItem(key);
+                if (v !== null) return v;
+            } catch(e) {}
+            return (window._sessionFallback || {})[key] || null;
+        }
+        function sessionRemove(key) {
+            try { sessionStorage.removeItem(key); } catch(e) {}
+            if (window._sessionFallback) delete window._sessionFallback[key];
+        }
+
+        // INICIALIZACIÓN
+        window.onload = function() {
+            const isLoggedIn = sessionGet('isLoggedIn');
+            if (isLoggedIn === 'true') {
+                showMainApp();
+                checkBackupReminder();
+                loadCurrentConfig();
+            }
+            
+            document.getElementById('currentDate').value = getTodayLocal();
+        };
+
+        // FUNCIONES DE FECHA
+        function getTodayLocal() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatDateDisplay(dateString) {
+            if (!dateString) return '';
+            const [year, month, day] = dateString.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        // LOGIN
+    // VERSIÓN CORREGIDA PARA IPHONE - LOGIN
+function checkPassword() {
+    const input = document.getElementById('passwordInput');
+    const error = document.getElementById('loginError');
+    
+    // Blur para ocultar teclado en móviles (crítico para iPhone)
+    input.blur();
+    
+    if (input.value === APP_PASSWORD) {
+        sessionSet('isLoggedIn', 'true');
+        showMainApp();
+        checkBackupReminder();
+        loadCurrentConfig();
+        input.value = '';
+        error.classList.remove('show');
+        input.classList.remove('error');
+    } else {
+        input.classList.add('error');
+        error.classList.add('show');
+        // Vibración táctil si está disponible
+        if (navigator.vibrate) navigator.vibrate(200);
+        setTimeout(() => input.classList.remove('error'), 500);
+    }
+}
+
+// LOGIN EVENTS - compatible con iOS Safari (archivos locales)
+document.addEventListener('DOMContentLoaded', function() {
+    var passwordInput = document.getElementById('passwordInput');
+    var loginBtn = document.getElementById('loginBtn');
+
+    // Enter en teclado
+    passwordInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            passwordInput.blur();
+            checkPassword();
+        }
+    });
+
+    // touchstart es el evento más confiable en iOS para botones en position:fixed
+    loginBtn.addEventListener('touchstart', function(e) {
+        e.preventDefault(); // evita el click fantasma posterior
+        passwordInput.blur();
+        checkPassword();
+    }, { passive: false });
+
+    // fallback para mouse / escritorio
+    loginBtn.addEventListener('click', function(e) {
+        // solo si no vino de touch
+        if (e.sourceCapabilities && !e.sourceCapabilities.firesTouchEvents) {
+            checkPassword();
+        } else if (!('ontouchstart' in window)) {
+            checkPassword();
+        }
+    });
+});
+
+        function showMainApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').style.display = 'block';
+            updateUI();
+            initAddButton();
+        }
+
+        function logout() {
+            if (confirm('¿Cerrar sesión?')) {
+                sessionRemove('isLoggedIn');
+                location.reload();
+            }
+        }
+
+        // SISTEMA DE MÓDULOS POR AÑO
+        
+        function getCourseYear() {
+            if (!currentConfig.course) return null;
+            
+            if (currentConfig.course.includes('1er año')) return 1;
+            if (currentConfig.course.includes('2do año')) return 2;
+            if (currentConfig.course.includes('3er año')) return 3;
+            
+            return null;
+        }
+
+        function getAvailableModules() {
+            const year = getCourseYear();
+            
+            if (year === 1) return [1, 2];
+            if (year === 2) return [3, 4];
+            if (year === 3) return [5, 6];
+            
+            return [];
+        }
+
+      function updateModuleUI() {
+    const modules = getAvailableModules();
+    const btnM1 = document.getElementById('btnM1');
+    const btnM2 = document.getElementById('btnM2');
+    const moduleInfo = document.getElementById('moduleInfo');
+    
+    // Resetear botones
+    btnM1.disabled = true;
+    btnM2.disabled = true;
+    btnM1.classList.remove('active');
+    btnM2.classList.remove('active');
+    
+    if (modules.length === 0) {
+        moduleInfo.textContent = 'Selecciona un curso';
+        btnM1.textContent = 'M-';
+        btnM2.textContent = 'M-';
+        // Actualizar onclick handlers para que no hagan nada
+        btnM1.onclick = null;
+        btnM2.onclick = null;
+        return;
+    }
+    
+    btnM1.disabled = false;
+    btnM2.disabled = false;
+    btnM1.textContent = `M${modules[0]}`;
+    btnM2.textContent = `M${modules[1]}`;
+    
+    // CORRECCIÓN: Actualizar los handlers onclick con los valores correctos de módulo
+    btnM1.onclick = function() { setModule(modules[0]); };
+    btnM2.onclick = function() { setModule(modules[1]); };
+    
+    const year = getCourseYear();
+    moduleInfo.textContent = `${year}° Año: Módulos ${modules[0]} y ${modules[1]}`;
+    
+    // Restaurar selección si existe y es válida
+    if (currentConfig.module && modules.includes(currentConfig.module)) {
+        if (currentConfig.module === modules[0]) {
+            btnM1.classList.add('active');
+        } else if (currentConfig.module === modules[1]) {
+            btnM2.classList.add('active');
+        }
+    } else {
+        currentConfig.module = 0;
+    }
+}
+        // SISTEMA DE GRUPOS
+        
+        function getGroupKey() {
+            if (!currentConfig.course || !currentConfig.module || !currentConfig.bubble) return null;
+            return `${currentConfig.course}|M${currentConfig.module}|B${currentConfig.bubble}`;
+        }
+
+        function getGroupData() {
+            const key = getGroupKey();
+            if (!key) return null;
+            
+            if (!groupsData[key]) {
+                groupsData[key] = {
+                    students: [],
+                    school: '',
+                    teacher: '',
+                    subject: '',
+                    yearStart: '',
+                    yearEnd: '',
+                    classTime: '08:00',
+                    classDays: []
+                };
+            }
+            return groupsData[key];
+        }
+
+        function changeCourse() {
+            currentConfig.course = document.getElementById('courseSelect').value;
+            
+            const oldModule = currentConfig.module;
+            currentConfig.module = 0;
+            
+            saveCurrentConfig();
+            updateUI();
+            
+            if (oldModule && getCourseYear()) {
+                const newModules = getAvailableModules();
+                if (!newModules.includes(oldModule)) {
+                    showToast(`Módulo cambiado: ${oldModule} → selecciona ${newModules[0]} o ${newModules[1]}`);
+                }
+            }
+        }
+
+        function setModule(m) {
+    const availableModules = getAvailableModules();
+    if (!availableModules.includes(m)) {
+        showToast('Módulo no válido para este curso');
+        return;
+    }
+    
+    currentConfig.module = m;
+    saveCurrentConfig();
+    updateUI();
+}
+
+        function setBubble(b) {
+            currentConfig.bubble = b;
+            saveCurrentConfig();
+            updateUI();
+        }
+
+        function saveCurrentConfig() {
+            localStorage.setItem('currentConfig', JSON.stringify(currentConfig));
+        }
+
+        function loadCurrentConfig() {
+            const saved = localStorage.getItem('currentConfig');
+            if (saved) {
+                currentConfig = JSON.parse(saved);
+                document.getElementById('courseSelect').value = currentConfig.course || '';
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            const isComplete = currentConfig.course && currentConfig.module && currentConfig.bubble;
+            
+            updateModuleUI();
+            
+            document.getElementById('btnB1').classList.toggle('active', currentConfig.bubble === 1);
+            document.getElementById('btnB2').classList.toggle('active', currentConfig.bubble === 2);
+            
+            document.getElementById('displayCourse').textContent = currentConfig.course || 'No seleccionado';
+            
+            const display = document.getElementById('groupDisplay');
+            const info = document.getElementById('displayInfo');
+            
+            if (isComplete) {
+                display.classList.remove('incomplete');
+                info.innerHTML = `<strong>${currentConfig.course}</strong> | Módulo ${currentConfig.module} | Burbuja ${currentConfig.bubble}`;
+                
+                const data = getGroupData();
+                document.getElementById('schoolName').value = data.school || '';
+                document.getElementById('teacherName').value = data.teacher || '';
+                document.getElementById('subjectName').value = data.subject || '';
+                document.getElementById('yearStartDate').value = data.yearStart || '';
+                document.getElementById('yearEndDate').value = data.yearEnd || '';
+                document.getElementById('classTime').value = data.classTime || '08:00';
+                
+                const classDays = data.classDays || [];
+                document.querySelectorAll('.day-checkbox input').forEach(cb => {
+                    const dayValue = parseInt(cb.value);
+                    cb.checked = classDays.includes(dayValue);
+                    cb.parentElement.classList.toggle('checked', cb.checked);
+                });
+            } else {
+                display.classList.add('incomplete');
+                let missing = [];
+                if (!currentConfig.course) missing.push('Curso');
+                if (!currentConfig.module) missing.push('Módulo');
+                if (!currentConfig.bubble) missing.push('Burbuja');
+                info.textContent = 'Falta: ' + missing.join(', ');
+            }
+            
+            document.getElementById('configAlert').classList.toggle('show', !isComplete);
+            document.getElementById('addStudentBtn').disabled = !isComplete;
+            
+            renderStudents();
+        }
+
+        function saveGroupConfig() {
+            const data = getGroupData();
+            if (!data) return;
+            
+            data.school = document.getElementById('schoolName').value;
+            data.teacher = document.getElementById('teacherName').value;
+            data.subject = document.getElementById('subjectName').value;
+            data.yearStart = document.getElementById('yearStartDate').value;
+            data.yearEnd = document.getElementById('yearEndDate').value;
+            data.classTime = document.getElementById('classTime').value;
+            
+            saveData();
+        }
+
+        function toggleDay(checkbox) {
+            const data = getGroupData();
+            if (!data) {
+                checkbox.checked = false;
+                checkbox.parentElement.classList.remove('checked');
+                return;
+            }
+            
+            const day = parseInt(checkbox.value);
+            
+            if (!Array.isArray(data.classDays)) {
+                data.classDays = [];
+            }
+            
+            if (checkbox.checked) {
+                if (!data.classDays.includes(day)) {
+                    data.classDays.push(day);
+                }
+            } else {
+                data.classDays = data.classDays.filter(d => d !== day);
+            }
+            
+            checkbox.parentElement.classList.toggle('checked', checkbox.checked);
+            saveData();
+        }
+
+        function getClassDatesBetween(startDate, endDate, classDays, studentStartDate) {
+            const dates = [];
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const studentStart = studentStartDate ? new Date(studentStartDate) : start;
+            
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                if (classDays.includes(d.getDay()) && d >= studentStart) {
+                    dates.push(d.toISOString().split('T')[0]);
+                }
+            }
+            return dates;
+        }
+
+        function processRetroactiveAbsences() {
+            const data = getGroupData();
+            if (!data || !data.yearStart || !data.classDays || data.classDays.length === 0) return;
+            
+            const today = getTodayLocal();
+            
+            data.students.forEach(student => {
+                const studentStart = student.startDate || data.yearStart;
+                const previousDates = getClassDatesBetween(data.yearStart, today, data.classDays, studentStart);
+                
+                previousDates.forEach(date => {
+                    if (!attendance[date]) attendance[date] = {};
+                    if (!attendance[date][student.id]) {
+                        attendance[date][student.id] = 'absent';
+                    }
+                });
+            });
+            
+            saveData();
+            renderStudents();
+            showToast('Ausencias procesadas');
+        }
+
+        // AGREGAR ALUMNO
+        function addStudent() {
+            if (!getGroupKey()) {
+                alert('Completa la configuración del grupo primero');
+                return;
+            }
+            
+            const data = getGroupData();
+            const today = document.getElementById('currentDate').value || getTodayLocal();
+            
+            const student = {
+                id: generateId(),
+                studentId: generateStudentId(),
+                name: 'Nuevo Alumno',
+                photo: null,
+                startDate: today,
+                grades: ['', '', '', ''],
+                notes: ''
+            };
+            
+            data.students.push(student);
+            sortStudents();
+            saveData();
+            renderStudents();
+            showToast('Alumno agregado - ID: ' + student.studentId);
+        }
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        let lastStudentNumber = 0;
+        function generateStudentId() {
+            let maxNum = 0;
+            Object.values(groupsData).forEach(group => {
+                group.students.forEach(s => {
+                    if (s.studentId && s.studentId.startsWith('LEG')) {
+                        const num = parseInt(s.studentId.replace('LEG', ''));
+                        if (num > maxNum) maxNum = num;
+                    }
+                });
+            });
+            lastStudentNumber = maxNum + 1;
+            return 'LEG' + String(lastStudentNumber).padStart(4, '0');
+        }
+
+        function sortStudents() {
+            const data = getGroupData();
+            if (!data) return;
+            data.students.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+        }
+
+        function removeStudent(id) {
+            if (!confirm('¿Eliminar alumno?')) return;
+            const data = getGroupData();
+            data.students = data.students.filter(s => s.id !== id);
+            saveData();
+            renderStudents();
+        }
+
+        function updateStudent(id, field, value) {
+            const data = getGroupData();
+            const student = data.students.find(s => s.id === id);
+            if (!student) return;
+            
+            if (field === 'studentId') {
+                showToast('El ID es automático');
+                renderStudents();
+                return;
+            }
+            
+            student[field] = value;
+            if (field === 'name') sortStudents();
+            saveData();
+            if (field === 'name') renderStudents();
+        }
+
+        function validateGrade(value) {
+            if (value === '' || value === null || value === undefined) return true;
+            const num = parseFloat(value);
+            if (isNaN(num) || num < 1 || num > 10) return false;
+            const decimals = (value.toString().split('.')[1] || '').length;
+            return decimals <= 1;
+        }
+
+        function updateGrade(id, index, value) {
+            const input = document.querySelector(`input[data-student="${id}"][data-grade="${index}"]`);
+            
+            if (!validateGrade(value)) {
+                showToast('Nota inválida (1-10)');
+                if (input) {
+                    input.classList.add('error');
+                    setTimeout(() => input.classList.remove('error'), 2000);
+                }
+                return;
+            }
+            
+            const data = getGroupData();
+            const student = data.students.find(s => s.id === id);
+            if (student) {
+                student.grades[index] = value;
+                saveData();
+                updateAverageDisplay(id);
+                if (input) {
+                    input.classList.remove('error');
+                    input.classList.add('valid');
+                }
+            }
+        }
+
+        function calculateAverage(grades) {
+            const valid = grades.filter(g => g !== '' && !isNaN(parseFloat(g)));
+            if (valid.length === 0) return null;
+            const sum = valid.reduce((acc, g) => acc + parseFloat(g), 0);
+            return (sum / valid.length).toFixed(2);
+        }
+
+        function updateAverageDisplay(studentId) {
+            const data = getGroupData();
+            const student = data.students.find(s => s.id === studentId);
+            if (!student) return;
+            
+            const avg = calculateAverage(student.grades);
+            const el = document.getElementById('avg-' + studentId);
+            if (el && avg !== null) {
+                el.textContent = avg;
+                el.className = 'average-value ' + (parseFloat(avg) >= 6 ? 'pass' : 'fail');
+            }
+        }
+
+         // CÁMARA
+       // PERMISOS DE CÁMARA MEJORADOS PARA MÓVILES
+async function requestCameraPermission() {
+    // Verificar si es entorno seguro (HTTPS o localhost)
+    if (!window.isSecureContext) {
+        showToast('⚠️ La cámara requiere conexión segura (HTTPS)');
+        // Intentar igual pero con manejo de errores mejorado
+    }
+    
+    if (cameraPermissionGranted) return true;
+    
+    try {
+        // Solicitud explícita con constraints mínimas primero
+        const testStream = await navigator.mediaDevices.getUserMedia({ 
+            video: true,
+            audio: false 
+        });
+        testStream.getTracks().forEach(track => track.stop());
+        cameraPermissionGranted = true;
+        return true;
+    } catch (err) {
+        console.error('Error permiso cámara:', err.name, err.message);
+        
+        // Mensajes específicos según el error
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            showToast('❌ Permiso denegado. Ve a Ajustes > Permisos > Cámara');
+        } else if (err.name === 'NotFoundError') {
+            showToast('❌ No se encontró cámara disponible');
+        } else if (err.name === 'NotReadableError') {
+            showToast('❌ Cámara en uso por otra app');
+        } else {
+            showToast('❌ Error de cámara: ' + err.name);
+        }
+        return false;
+    }
+}
+
+// VERSIÓN CORREGIDA DE OPEN CAMERA
+async function openCamera(studentId) {
+    currentStudentId = studentId;
+    
+    // Mostrar modal inmediatamente para feedback visual
+    const modal = document.getElementById('cameraModal');
+    modal.style.display = 'flex';
+    
+    // Pequeño delay para permitir renderizado en móviles
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    const hasPermission = await requestCameraPermission();
+    if (!hasPermission) {
+        setTimeout(() => closeCamera(), 2000);
+        return;
+    }
+    
+    try {
+        // Configuración optimizada para Android/iOS
+        const constraints = {
+            video: {
+                facingMode: 'user',
+                width: { ideal: 1280, min: 640 },
+                height: { ideal: 720, min: 480 }
+            },
+            audio: false
+        };
+        
+        // Detener stream anterior si existe
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        const video = document.getElementById('videoElement');
+        
+        // Configuración específica para iOS Safari
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('webkit-playsinline', 'true');
+        video.muted = true;
+        
+        video.srcObject = stream;
+        
+        // Esperar a que el video esté listo con timeout
+        await Promise.race([
+            new Promise((resolve) => {
+                video.onloadedmetadata = () => {
+                    video.play().then(resolve).catch(resolve);
+                };
+            }),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout video')), 10000)
+            )
+        ]);
+        
+        // Mostrar controles
+        document.getElementById('cameraControls').style.display = 'flex';
+        
+    } catch (err) {
+        console.error('Error iniciando cámara:', err);
+        showToast('Error al iniciar cámara: ' + err.message);
+        closeCamera();
+    }
+}
+
+        function startCountdown() {
+            if (isCapturing) return;
+            isCapturing = true;
+            
+            const countdown = document.getElementById('countdown');
+            let count = 3;
+            
+            countdown.style.display = 'block';
+            countdown.textContent = count;
+            
+            const interval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    countdown.textContent = count;
+                } else {
+                    clearInterval(interval);
+                    countdown.style.display = 'none';
+                    capturePhoto();
+                }
+            }, 1000);
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById('videoElement');
+            const canvas = document.getElementById('canvasElement');
+            
+            canvas.width = 240;
+            canvas.height = 300;
+            
+            const ctx = canvas.getContext('2d');
+            const videoWidth = video.videoWidth;
+            const videoHeight = video.videoHeight;
+            const videoAspect = videoWidth / videoHeight;
+            const frameAspect = 240 / 300;
+            
+            let sx, sy, sWidth, sHeight;
+            
+            if (videoAspect > frameAspect) {
+                sHeight = videoHeight;
+                sWidth = videoHeight * frameAspect;
+                sx = (videoWidth - sWidth) / 2;
+                sy = 0;
+            } else {
+                sWidth = videoWidth;
+                sHeight = videoWidth / frameAspect;
+                sx = 0;
+                sy = (videoHeight - sHeight) / 2;
+            }
+            
+            ctx.translate(240, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, 240, 300);
+            
+            video.style.display = 'none';
+            canvas.style.display = 'block';
+            document.querySelector('.camera-frame').style.display = 'none';
+            document.getElementById('cameraControls').style.display = 'none';
+            document.getElementById('photoControls').style.display = 'flex';
+            
+            const flash = document.getElementById('flash');
+            flash.classList.add('active');
+            setTimeout(() => flash.classList.remove('active'), 300);
+            
+            isCapturing = false;
+        }
+
+        function retakePhoto() {
+            document.getElementById('videoElement').style.display = 'block';
+            document.getElementById('canvasElement').style.display = 'none';
+            document.querySelector('.camera-frame').style.display = 'block';
+            document.getElementById('cameraControls').style.display = 'flex';
+            document.getElementById('photoControls').style.display = 'none';
+            isCapturing = false;
+        }
+
+        function savePhoto() {
+            try {
+                const data = getGroupData();
+                if (!data) {
+                    showToast('Error: grupo no encontrado');
+                    return;
+                }
+
+                const student = data.students.find(s => String(s.id) === String(currentStudentId));
+                if (!student) {
+                    showToast('Alumno no encontrado');
+                    return;
+                }
+
+                const canvasOriginal = document.getElementById('canvasElement');
+                const finalCanvas = document.createElement('canvas');
+                finalCanvas.width = 100;
+                finalCanvas.height = 125;
+                const ctx = finalCanvas.getContext('2d');
+                ctx.drawImage(canvasOriginal, 0, 0, 240, 300, 0, 0, 100, 125);
+
+                student.photo = finalCanvas.toDataURL('image/jpeg', 0.85);
+                
+                saveData();
+                renderStudents();
+                closeCamera();
+                showToast('Foto guardada');
+            } catch (error) {
+                console.error(error);
+                showToast('Error al guardar foto');
+            }
+        }
+
+        function closeCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            const modal = document.getElementById('cameraModal');
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+            currentStudentId = null;
+            isCapturing = false;
+        }
+
+// MENÚ DE FOTO (click en foto existente)
+function openPhotoMenu(studentId) {
+    tempStudentId = studentId;
+    
+    // Si estamos en WhatsApp/archivo local, ir directo a opciones de archivo
+    if (isInsecureContext) {
+        showFileOptions(studentId);
+        return;
+    }
+    
+    // Si estamos en web seguro, mostrar menú completo
+    document.getElementById('photoMenuOverlay').classList.add('active');
+}
+
+function closePhotoMenu() {
+    document.getElementById('photoMenuOverlay').classList.remove('active');
+    tempStudentId = null;
+}
+
+// OPCIONES de archivo para contexto inseguro
+function showFileOptions(studentId) {
+    currentStudentId = studentId;
+    
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        z-index: 9999;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding: 20px;
+    `;
+    
+    overlay.innerHTML = `
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 400px; overflow: hidden;">
+            <div style="padding: 20px; text-align: center; border-bottom: 1px solid #e2e8f0;">
+                <div style="font-size: 2rem;">📷</div>
+                <div style="font-weight: 700; margin-top: 10px;">Actualizar Foto</div>
+            </div>
+            <div style="padding: 10px;">
+                <button onclick="triggerNativeCameraFromOverlay('user')" 
+                        style="width: 100%; padding: 16px; border: none; background: #f7fafc; 
+                               border-radius: 12px; margin-bottom: 8px; font-size: 1rem; 
+                               font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                    <span>🤳</span> Cámara Frontal
+                </button>
+                <button onclick="triggerNativeCameraFromOverlay('environment')" 
+                        style="width: 100%; padding: 16px; border: none; background: #f7fafc; 
+                               border-radius: 12px; margin-bottom: 8px; font-size: 1rem; 
+                               font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                    <span>📸</span> Cámara Trasera
+                </button>
+                <button onclick="triggerGalleryFromOverlay()" 
+                        style="width: 100%; padding: 16px; border: none; background: #f7fafc; 
+                               border-radius: 12px; margin-bottom: 8px; font-size: 1rem; color: #667eea;
+                               font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                    <span>🖼️</span> Galería
+                </button>
+                <button onclick="this.closest('.overlay').remove()" 
+                        style="width: 100%; padding: 16px; border: none; background: white; 
+                               color: #e53e3e; font-weight: 600; font-size: 1rem; cursor: pointer;">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    overlay.className = 'overlay';
+    overlay.onclick = (e) => {
+        if (e.target === overlay) overlay.remove();
+    };
+    
+    document.body.appendChild(overlay);
+}
+
+function triggerNativeCameraFromOverlay(facingMode) {
+    document.querySelector('.overlay')?.remove();
+    openNativeCamera(currentStudentId || tempStudentId);
+}
+
+function triggerGalleryFromOverlay() {
+    document.querySelector('.overlay')?.remove();
+    
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    
+    input.onchange = (e) => {
+        if (e.target.files?.[0]) {
+            processPhotoFile(e.target.files[0]);
+        }
+    };
+    
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => document.body.removeChild(input), 1000);
+}
+
+// Compatibilidad con funciones antiguas
+function openCameraFromMenu() {
+    closePhotoMenu();
+    const id = tempStudentId || currentStudentId;
+    if (isInsecureContext) {
+        openNativeCamera(id);
+    } else {
+        openWebCamera(id);
+    }
+}
+
+function triggerFileUpload() {
+    closePhotoMenu();
+    triggerGalleryFromOverlay();
+}
+
+// Manejador de archivo oculto (para compatibilidad)
+function handleFileUpload(event) {
+    const file = event.target.files?.[0];
+    if (file && tempStudentId) {
+        currentStudentId = tempStudentId;
+        processPhotoFile(file);
+    }
+    event.target.value = '';
+}
+
+        // MENÚ DE FOTO
+        function openPhotoMenu(studentId) {
+            tempStudentId = studentId;
+            document.getElementById('photoMenuOverlay').classList.add('active');
+        }
+
+        function closePhotoMenu() {
+            document.getElementById('photoMenuOverlay').classList.remove('active');
+            tempStudentId = null;
+        }
+
+        function openCameraFromMenu() {
+            if (tempStudentId) {
+                const id = tempStudentId;
+                closePhotoMenu();
+                setTimeout(() => openCamera(id), 100);
+            }
+        }
+
+        function triggerFileUpload() {
+            if (tempStudentId) {
+                document.getElementById('hiddenFileInput').click();
+                closePhotoMenu();
+            }
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file || !tempStudentId) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 100;
+                    canvas.height = 125;
+                    const ctx = canvas.getContext('2d');
+
+                    const imgAspect = img.width / img.height;
+                    const frameAspect = 100 / 125;
+                    let sx, sy, sWidth, sHeight;
+
+                    if (imgAspect > frameAspect) {
+                        sHeight = img.height;
+                        sWidth = img.height * frameAspect;
+                        sx = (img.width - sWidth) / 2;
+                        sy = 0;
+                    } else {
+                        sWidth = img.width;
+                        sHeight = img.width / frameAspect;
+                        sx = 0;
+                        sy = (img.height - sHeight) / 2;
+                    }
+
+                    ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, 100, 125);
+
+                    const data = getGroupData();
+                    const student = data.students.find(s => String(s.id) === String(tempStudentId));
+
+                    if (student) {
+                        student.photo = canvas.toDataURL('image/jpeg', 0.85);
+                        saveData();
+                        renderStudents();
+                        showToast('Foto actualizada');
+                    }
+                    tempStudentId = null;
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ASISTENCIA
+        function markAttendance(studentId, status) {
+            const dateInput = document.getElementById('currentDate').value;
+            if (!dateInput) {
+                alert('Selecciona una fecha');
+                return;
+            }
+            
+            const groupKey = getGroupKey();
+            if (!groupKey) return;
+            
+            const attendanceKey = `${dateInput}|${groupKey}`;
+            
+            if (!attendance[attendanceKey]) attendance[attendanceKey] = {};
+            
+            if (attendance[attendanceKey][studentId] === status) {
+                delete attendance[attendanceKey][studentId];
+            } else {
+                attendance[attendanceKey][studentId] = status;
+            }
+            
+            saveData();
+            renderStudents();
+        }
+
+        function getAttendance(studentId, date) {
+            const groupKey = getGroupKey();
+            if (!groupKey || !date) return null;
+            const attendanceKey = `${date}|${groupKey}`;
+            return attendance[attendanceKey] ? attendance[attendanceKey][studentId] : null;
+        }
+
+        function calculateStats(studentId) {
+            const groupKey = getGroupKey();
+            if (!groupKey) return { p: 0, a: 0, t: 0, pct: 0 };
+            
+            let p = 0, a = 0, t = 0;
+            
+            Object.entries(attendance).forEach(([key, records]) => {
+                if (key.endsWith(`|${groupKey}`) && records[studentId]) {
+                    const status = records[studentId];
+                    if (status === 'present') p++;
+                    else if (status === 'absent') a++;
+                    else if (status === 'late') t++;
+                }
+            });
+            
+            const total = p + a + t;
+            return { p, a, t, pct: total ? Math.round((p / total) * 100) : 0 };
+        }
+
+        function showHistory(studentId) {
+            const data = getGroupData();
+            const student = data.students.find(s => s.id === studentId);
+            const groupKey = getGroupKey();
+            
+            const history = Object.entries(attendance)
+                .filter(([key, rec]) => key.endsWith(`|${groupKey}`) && rec[studentId])
+                .sort(([a], [b]) => b.split('|')[0].localeCompare(a.split('|')[0]))
+                .map(([key, rec]) => {
+                    const dateStr = key.split('|')[0];
+                    const [year, month, day] = dateStr.split('-');
+                    const displayDate = `${day}/${month}/${year}`;
+                    
+                    const st = rec[studentId];
+                    const label = st === 'present' ? 'Presente' : st === 'absent' ? 'Ausente' : 'Tarde';
+                    const color = st === 'present' ? '#48bb78' : st === 'absent' ? '#f56565' : '#ecc94b';
+                    return `<div style="padding: 10px; border-left: 3px solid ${color}; background: #f7fafc; margin-bottom: 6px; border-radius: 6px; display: flex; justify-content: space-between; font-size: 0.9rem;">
+                        <span>${displayDate}</span>
+                        <span style="color: ${color}; font-weight: 700;">${label}</span>
+                    </div>`;
+                }).join('') || '<p style="text-align: center; color: #a0aec0; padding: 20px;">Sin historial</p>';
+            
+            document.getElementById('historyContent').innerHTML = `<h4 style="margin-bottom: 12px; color: #2d3748; font-size: 1.1rem;">${student.name}</h4>${history}`;
+            document.getElementById('historyModal').classList.add('active');
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('historyModal').classList.remove('active');
+        }
+
+        // RENDERIZAR
+        function renderStudents() {
+            const container = document.getElementById('studentsContainer');
+            const dateInput = document.getElementById('currentDate').value;
+            const data = getGroupData();
+            
+            if (!data) {
+                container.innerHTML = '<div style="text-align: center; color: white; padding: 40px; font-size: 1rem;">⚙️ Configura el grupo para ver alumnos</div>';
+                updateStats();
+                return;
+            }
+            
+            if (data.students.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: white; padding: 40px;"><h3>Sin alumnos en este grupo</h3><p>Agrega el primer alumno</p></div>';
+                updateStats();
+                return;
+            }
+            
+            container.innerHTML = data.students.map(student => {
+                const currentStatus = dateInput ? getAttendance(student.id, dateInput) : null;
+                const stats = calculateStats(student.id);
+                const average = calculateAverage(student.grades);
+                
+                let statusHtml = '';
+                if (currentStatus) {
+                    const statusText = currentStatus === 'present' ? '✓ Presente' : currentStatus === 'absent' ? '✗ Ausente' : '⏰ Tarde';
+                    statusHtml = `<div class="current-status ${currentStatus}">${statusText}</div>`;
+                } else if (dateInput) {
+                    statusHtml = '<div class="current-status none">Sin registro</div>';
+                }
+                
+                const hasPhoto = student.photo && student.photo.length > 100;
+                const photoHtml = hasPhoto 
+                    ? `<img src="${student.photo}" alt="Foto" style="display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 15%;">`
+                    : '<span class="photo-placeholder-small">📷</span>';
+                
+                const averageHtml = average !== null 
+                    ? `<div class="average-display">
+                        <div class="average-label">Promedio General</div>
+                        <div id="avg-${student.id}" class="average-value ${parseFloat(average) >= 6 ? 'pass' : 'fail'}">${average}</div>
+                       </div>`
+                    : `<div class="average-display" style="opacity: 0.6;">
+                        <div class="average-label">Promedio General</div>
+                        <div id="avg-${student.id}" class="average-value">--</div>
+                       </div>`;
+                
+                let startDateDisplay = '-';
+                if (student.startDate) {
+                    const [year, month, day] = student.startDate.split('-');
+                    startDateDisplay = `${day}/${month}`;
+                }
+                
+                return `<div class="student-card">
+                    <div class="student-header-row">
+                        <div class="student-photo-thumb ${hasPhoto ? 'has-photo' : ''}" onclick="openPhotoMenu('${student.id}')">
+                            ${photoHtml}
+                            <div class="photo-edit-hint">✎</div>
+                        </div>
+                        <div class="student-title">
+                            <input type="text" class="student-name" value="${student.name}" onchange="updateStudent('${student.id}', 'name', this.value)" placeholder="Nombre">
+                            <div class="student-meta">
+                                <span class="student-id-display" title="ID único">${student.studentId || 'SIN ID'}</span>
+                                <span class="group-badge">M${currentConfig.module}-B${currentConfig.bubble}</span>
+                                <span class="start-date-badge">${startDateDisplay}</span>
+                            </div>
+                        </div>
+                        <button class="remove-btn-small" onclick="removeStudent('${student.id}')" type="button">×</button>
+                    </div>
+                    <div class="student-body">
+                        ${statusHtml}
+                        <div class="attendance-controls">
+                            <button class="attendance-btn ${currentStatus === 'present' ? 'present' : ''}" onclick="markAttendance('${student.id}', 'present')" type="button">PRESENTE</button>
+                            <button class="attendance-btn ${currentStatus === 'absent' ? 'absent' : ''}" onclick="markAttendance('${student.id}', 'absent')" type="button">AUSENTE</button>
+                            <button class="attendance-btn ${currentStatus === 'late' ? 'late' : ''}" onclick="markAttendance('${student.id}', 'late')" type="button">TARDE</button>
+                        </div>
+                        <div class="grades-section">
+                            <div class="grades-title">Calificaciones (1-10)</div>
+                            <div class="grades-grid">
+                                <input type="number" min="1" max="10" step="0.1" class="grade-input ${student.grades[0] && validateGrade(student.grades[0]) ? 'valid' : ''}" value="${student.grades[0]}" onchange="updateGrade('${student.id}', 0, this.value)" placeholder="1°" data-student="${student.id}" data-grade="0">
+                                <input type="number" min="1" max="10" step="0.1" class="grade-input ${student.grades[1] && validateGrade(student.grades[1]) ? 'valid' : ''}" value="${student.grades[1]}" onchange="updateGrade('${student.id}', 1, this.value)" placeholder="2°" data-student="${student.id}" data-grade="1">
+                                <input type="number" min="1" max="10" step="0.1" class="grade-input ${student.grades[2] && validateGrade(student.grades[2]) ? 'valid' : ''}" value="${student.grades[2]}" onchange="updateGrade('${student.id}', 2, this.value)" placeholder="3°" data-student="${student.id}" data-grade="2">
+                                <input type="number" min="1" max="10" step="0.1" class="grade-input ${student.grades[3] && validateGrade(student.grades[3]) ? 'valid' : ''}" value="${student.grades[3]}" onchange="updateGrade('${student.id}', 3, this.value)" placeholder="4°" data-student="${student.id}" data-grade="3">
+                            </div>
+                            ${averageHtml}
+                        </div>
+                        <textarea class="notes-textarea" onchange="updateStudent('${student.id}', 'notes', this.value)" placeholder="Notas del profesor...">${student.notes || ''}</textarea>
+                        <div class="student-stats" onclick="showHistory('${student.id}')">
+                            <div class="stat"><div class="stat-value" style="color:#48bb78">${stats.p}</div>Presente</div>
+                            <div class="stat"><div class="stat-value" style="color:#f56565">${stats.a}</div>Ausente</div>
+                            <div class="stat"><div class="stat-value" style="color:#ecc94b">${stats.t}</div>Tarde</div>
+                            <div class="stat"><div class="stat-value">${stats.pct}%</div>Asist.</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            
+            updateStats();
+        }
+
+        function updateStats() {
+            const dateInput = document.getElementById('currentDate').value;
+            const data = getGroupData();
+            
+            if (!data) {
+                document.getElementById('totalStudents').textContent = '0';
+                document.getElementById('totalPresent').textContent = '0';
+                document.getElementById('totalAbsent').textContent = '0';
+                document.getElementById('totalLate').textContent = '0';
+                return;
+            }
+            
+            let p = 0, a = 0, t = 0;
+            data.students.forEach(s => {
+                const st = dateInput ? getAttendance(s.id, dateInput) : null;
+                if (st === 'present') p++;
+                else if (st === 'absent') a++;
+                else if (st === 'late') t++;
+            });
+            
+            document.getElementById('totalStudents').textContent = data.students.length;
+            document.getElementById('totalPresent').textContent = p;
+            document.getElementById('totalAbsent').textContent = a;
+            document.getElementById('totalLate').textContent = t;
+        }
+
+        // RESPALDO Y EXPORTACIÓN
+        function checkBackupReminder() {
+            const lastBackup = localStorage.getItem('lastBackupDate');
+            const alert = document.getElementById('backupAlert');
+            const dateSpan = document.getElementById('lastBackupDate');
+            
+            if (lastBackup) {
+                const lastDate = new Date(lastBackup);
+                const now = new Date();
+                const diffDays = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+                
+                dateSpan.textContent = diffDays === 0 ? 'Hoy' : diffDays === 1 ? 'Ayer' : diffDays + ' días atrás';
+                
+                if (diffDays >= BACKUP_REMINDER_DAYS) {
+                    alert.classList.add('show');
+                }
+            } else {
+                dateSpan.textContent = 'Nunca';
+                alert.classList.add('show');
+            }
+        }
+
+        function dismissBackupAlert() {
+            document.getElementById('backupAlert').classList.remove('show');
+        }
+
+        function updateLastBackupDate() {
+            const now = new Date().toISOString();
+            localStorage.setItem('lastBackupDate', now);
+            document.getElementById('lastBackupDate').textContent = 'Hoy';
+            document.getElementById('backupAlert').classList.remove('show');
+            
+            const btn = document.getElementById('btnExportJSON');
+            btn.classList.add('success');
+            btn.innerHTML = '✓ Guardado';
+            setTimeout(() => {
+                btn.classList.remove('success');
+                btn.innerHTML = '📥 JSON';
+            }, 2000);
+        }
+
+        async function exportToJSON(forceAlert = false) {
+            const exportData = {
+                exportDate: new Date().toISOString(),
+                version: '3.0',
+                groupsData: groupsData,
+                attendance: attendance,
+                currentConfig: currentConfig
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            const fileName = `respaldo_asistencia_${timestamp}.json`;
+            
+            if ('showSaveFilePicker' in window && !forceAlert) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: fileName,
+                        types: [{
+                            description: 'JSON Files',
+                            accept: { 'application/json': ['.json'] }
+                        }]
+                    });
+                    
+                    const writable = await handle.createWritable();
+                    await writable.write(dataStr);
+                    await writable.close();
+                    
+                    updateLastBackupDate();
+                    showToast('Respaldo guardado');
+                    return;
+                } catch (err) {
+                    console.log('File System Access API cancelado:', err);
+                }
+            }
+            
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            updateLastBackupDate();
+            showToast('Respaldo descargado');
+        }
+
+        function importFromJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importData = JSON.parse(e.target.result);
+                    
+                    if (!importData.groupsData) {
+                        throw new Error('Archivo inválido');
+                    }
+                    
+                    if (confirm(`¿Importar datos?\n\nFecha del respaldo: ${new Date(importData.exportDate).toLocaleString('es-ES')}\n\n⚠️ Esto reemplazará TODA la información actual.`)) {
+                        groupsData = importData.groupsData;
+                        attendance = importData.attendance || {};
+                        
+                        if (importData.currentConfig) {
+                            currentConfig = importData.currentConfig;
+                            document.getElementById('courseSelect').value = currentConfig.course || '';
+                        }
+                        
+                        saveData();
+                        updateUI();
+                        showToast('Datos importados correctamente');
+                        
+                        if (importData.exportDate) {
+                            localStorage.setItem('lastBackupDate', importData.exportDate);
+                        }
+                    }
+                } catch (err) {
+                    alert('Error al importar: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function exportToExcel() {
+            const data = getGroupData();
+            if (!data) {
+                alert('Selecciona un grupo primero');
+                return;
+            }
+            
+            const dateInput = document.getElementById('currentDate').value;
+            const excelData = [];
+            
+            excelData.push([
+                'Nombre', 'ID Alumno', 'Fecha Inicio', 'Nota 1°', 'Nota 2°', 'Nota 3°', 'Nota 4°',
+                'Promedio', 'Asistencia Hoy', 'Total Presente', 'Total Ausente', 'Total Tarde', '% Asistencia', 'Notas'
+            ]);
+            
+            data.students.forEach(student => {
+                const stats = calculateStats(student.id);
+                const average = calculateAverage(student.grades);
+                const todayAttendance = dateInput ? getAttendance(student.id, dateInput) : '-';
+                
+                excelData.push([
+                    student.name,
+                    student.studentId || '-',
+                    student.startDate,
+                    student.grades[0] || '-',
+                    student.grades[1] || '-',
+                    student.grades[2] || '-',
+                    student.grades[3] || '-',
+                    average || '-',
+                    todayAttendance === 'present' ? 'Presente' : todayAttendance === 'absent' ? 'Ausente' : todayAttendance === 'late' ? 'Tarde' : '-',
+                    stats.p,
+                    stats.a,
+                    stats.t,
+                    stats.pct + '%',
+                    student.notes || ''
+                ]);
+            });
+            
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+            
+            ws['!cols'] = [
+                {wch: 25}, {wch: 15}, {wch: 12}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8},
+                {wch: 10}, {wch: 12}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10}, {wch: 30}
+            ];
+            
+            const infoData = [
+                ['Escuela:', data.school || '-'],
+                ['Profesor:', data.teacher || '-'],
+                ['Materia:', data.subject || '-'],
+                ['Grupo:', `${currentConfig.course} - Módulo ${currentConfig.module} - Burbuja ${currentConfig.bubble}`],
+                ['Fecha exportación:', new Date().toLocaleString('es-ES')],
+                ['Fecha seleccionada:', dateInput || '-'],
+                []
+            ];
+            
+            const infoWs = XLSX.utils.aoa_to_sheet(infoData);
+            infoWs['!cols'] = [{wch: 20}, {wch: 40}];
+            
+            XLSX.utils.book_append_sheet(wb, infoWs, 'Información');
+            XLSX.utils.book_append_sheet(wb, ws, 'Alumnos');
+            
+            const timestamp = new Date().toISOString().slice(0, 10);
+            const safeCourse = currentConfig.course.replace(/[^a-z0-9]/gi, '_');
+            const fileName = `${safeCourse}_M${currentConfig.module}_B${currentConfig.bubble}_${timestamp}.xlsx`;
+            
+            XLSX.writeFile(wb, fileName);
+            showToast('Excel descargado');
+        }
+
+        // UTILIDADES
+        function saveData() {
+            localStorage.setItem('groupsData', JSON.stringify(groupsData));
+            localStorage.setItem('attendance', JSON.stringify(attendance));
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = '✓ ' + msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+      function initAddButton() {
+    const btn = document.getElementById('addStudentBtn');
+    if (!btn) return;
+    
+    // Clonar para eliminar listeners previos
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    
+    // Estado del botón
+    function updateButtonState() {
+        const isComplete = currentConfig.course && currentConfig.module && currentConfig.bubble;
+        newBtn.disabled = !isComplete;
+        newBtn.style.opacity = isComplete ? '1' : '0.5';
+    }
+    
+    // Evento click estándar
+    newBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (this.disabled) {
+            showToast('Completa Curso, Módulo y Burbuja primero');
+            return;
+        }
+        
+        addStudent();
+    });
+    
+    // Eventos táctiles específicos para móviles
+    newBtn.addEventListener('touchstart', function(e) {
+        if (this.disabled) return;
+        this.style.transform = 'scale(0.98)';
+        this.style.opacity = '0.8';
+    }, {passive: true});
+    
+    newBtn.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        this.style.transform = '';
+        this.style.opacity = '';
+        
+        if (!this.disabled) {
+            addStudent();
+        }
+    });
+    
+    // Actualizar estado inicial
+    updateButtonState();
+    
+    // Observar cambios en configuración
+    const observer = new MutationObserver(updateButtonState);
+    observer.observe(document.getElementById('groupDisplay'), { 
+        childList: true, 
+        subtree: true,
+        attributes: true 
+    });
+}
+        // Cerrar modales
+        document.getElementById('cameraModal').addEventListener('click', function(e) {
+            if (e.target === this) closeCamera();
+        });
+        
+        document.getElementById('historyModal').addEventListener('click', function(e) {
+            if (e.target === this) closeHistoryModal();
+        });
+    </script>
+</body>
+</html>
